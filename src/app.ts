@@ -1,7 +1,7 @@
-import { TUI, Text, Box, Markdown } from '@earendil-works/pi-tui';
+import { Box, ProcessTerminal, Text, TUI } from '@earendil-works/pi-tui';
 import chalk from 'chalk';
-import { streamAgentEvents } from './sse.js';
 import { renderEvent } from './render.js';
+import { streamAgentEvents } from './sse.js';
 import type { AgentTarget, ConnectionStatus, FlueEvent } from './types.js';
 
 export interface RunOptions {
@@ -21,23 +21,24 @@ export async function runTui(options: RunOptions): Promise<void> {
     return;
   }
 
-  const tui = new TUI();
+  const tui = new TUI(new ProcessTerminal());
+  const root = new Box(1, 1);
+  const text = new Text('Connecting to Flue...');
+  root.addChild(text);
+  tui.addChild(root);
+  tui.start();
+
   const events: FlueEvent[] = [];
   let status: ConnectionStatus = 'connecting';
 
   const redraw = (): void => {
-    const body = events.map(renderEvent).join('\n');
-    tui.setRoot(
-      new Box({
-        title: `flue-tui ${options.target.agent}/${options.target.id} ${status}`,
-        child: new Markdown(body || chalk.dim('Waiting for events...')),
-      }),
-    );
-    tui.render();
+    const title = chalk.bold(`flue-tui ${options.target.agent}/${options.target.id}`);
+    const body = events.map(renderEvent).join('\n') || chalk.dim('Waiting for events...');
+    text.setText(`${title}\n${chalk.dim(status)}\n\n${body}`);
+    tui.requestRender(true);
   };
 
-  tui.setRoot(new Text('Connecting to Flue...'));
-  tui.render();
+  redraw();
 
   try {
     for await (const event of streamAgentEvents(options.target)) {
@@ -52,6 +53,6 @@ export async function runTui(options: RunOptions): Promise<void> {
     events.push({ event: 'error', data: error instanceof Error ? error.message : String(error), raw: '' });
     redraw();
   } finally {
-    tui.close();
+    tui.stop();
   }
 }
