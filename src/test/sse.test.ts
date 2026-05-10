@@ -9,9 +9,11 @@ afterEach(async () => {
   servers.length = 0;
 });
 
-async function fixtureServer(): Promise<string> {
+async function fixtureServer(): Promise<{ serverUrl: string; requests: string[] }> {
+  const requests: string[] = [];
   const server = createServer((request, response) => {
-    if (request.url === '/agents/hello/run-1') {
+    requests.push(`${request.method} ${request.url}`);
+    if (request.url === '/agents/hello/run-1' && request.method === 'POST') {
       response.writeHead(200, { 'content-type': 'text/event-stream' });
       response.write('event: text\n');
       response.write('data: {"text":"Hello"}\n\n');
@@ -26,14 +28,15 @@ async function fixtureServer(): Promise<string> {
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('missing address');
-  return `http://127.0.0.1:${address.port}`;
+  return { serverUrl: `http://127.0.0.1:${address.port}`, requests };
 }
 
 describe('streamAgentEvents', () => {
-  it('parses named SSE events from a Flue-style agent endpoint', async () => {
-    const serverUrl = await fixtureServer();
+  it('posts to the real Flue /agents/:agent/:id endpoint and parses named SSE events', async () => {
+    const { serverUrl, requests } = await fixtureServer();
     const events = [];
-    for await (const event of streamAgentEvents({ serverUrl, agent: 'hello', id: 'run-1' })) events.push(event);
+    for await (const event of streamAgentEvents({ serverUrl, agent: 'hello', id: 'run-1', payload: { prompt: 'hi' } })) events.push(event);
+    expect(requests).toEqual(['POST /agents/hello/run-1']);
     expect(events).toEqual([
       { event: 'text', data: { text: 'Hello' }, raw: '{"text":"Hello"}' },
       { event: 'tool_start', data: { name: 'search' }, raw: '{"name":"search"}' },

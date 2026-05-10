@@ -16,4 +16,9 @@ export interface FlueEvent {
   raw: string;
 }
 
+export interface AgentCandidate {
+  server: FlueServer;
+  agent: string;
+}
+
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'closed' | 'error';

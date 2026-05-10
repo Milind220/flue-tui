@@ -13,20 +13,46 @@ function pickText(data: unknown): string {
   return JSON.stringify(data, null, 2);
 }
 
+function eventPayload(event: FlueEvent): unknown {
+  const record = asRecord(event.data);
+  return record?.type === event.event ? event.data : event.data;
+}
+
 export function renderEvent(event: FlueEvent): string {
+  const data = eventPayload(event);
+  const record = asRecord(data);
   switch (event.event) {
     case 'text':
     case 'message':
-      return pickText(event.data);
-    case 'tool_start':
-      return chalk.cyan(`\n↳ tool start ${pickText(event.data)}`);
-    case 'tool_end':
-      return chalk.green(`\n✓ tool end ${pickText(event.data)}`);
+      return pickText(data);
+    case 'text_delta':
+      return record && typeof record.text === 'string' ? record.text : pickText(data);
+    case 'thinking_start':
+      return chalk.dim('\n[thinking]');
+    case 'thinking_delta':
+      return chalk.dim(record && typeof record.delta === 'string' ? record.delta : pickText(data));
+    case 'thinking_end':
+      return chalk.dim('\n[/thinking]');
+    case 'agent_start':
+      return chalk.dim('\n[agent:start]');
+    case 'turn_end':
+      return chalk.dim('\n[turn:end]');
+    case 'tool_start': {
+      const name = typeof record?.toolName === 'string' ? record.toolName : 'tool';
+      return chalk.cyan(`\n↳ ${name} ${JSON.stringify(record?.args ?? {})}`);
+    }
+    case 'tool_end': {
+      const name = typeof record?.toolName === 'string' ? record.toolName : 'tool';
+      const errored = record?.isError === true;
+      return (errored ? chalk.red : chalk.green)(`\n${errored ? '✗' : '✓'} ${name}`);
+    }
+    case 'result':
+      return chalk.bold(`\n[result] ${pickText(record?.data ?? data)}`);
     case 'error':
-      return chalk.red(`\n✗ ${pickText(event.data)}`);
+      return chalk.red(`\n✗ ${pickText(record?.error ?? data)}`);
     case 'idle':
       return chalk.dim('\n… idle');
     default:
-      return chalk.dim(`\n[${event.event}] ${pickText(event.data)}`);
+      return chalk.dim(`\n[${event.event}] ${pickText(data)}`);
   }
 }
