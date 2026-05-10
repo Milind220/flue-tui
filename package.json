@@ -1,0 +1,31 @@
+{
+  "name": "flue-tui",
+  "version": "0.1.0",
+  "description": "A Pi-inspired terminal UI for connecting to Flue dev agent servers over SSE.",
+  "type": "module",
+  "bin": { "flue-tui": "dist/cli.js" },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli.ts",
+    "test": "vitest run",
+    "check": "npm run build && npm run test"
+  },
+  "keywords": ["flue", "agent", "tui", "sse", "terminal"],
+  "license": "MIT",
+  "engines": { "node": ">=22.18.0" },
+  "dependencies": {
+    "@earendil-works/pi-tui": "^0.74.0",
+    "chalk": "^5.5.0",
+    "eventsource-parser": "^3.0.6",
+    "yargs": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/yargs": "^17.0.33",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.10"
+  }
+}
