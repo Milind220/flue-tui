@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
+import { Container, ProcessTerminal, SelectList, Spacer, Text, TUI } from '@earendil-works/pi-tui';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { discoverAgents, discoverCandidates, discoverServers, explicitServer } from './discovery.js';
 import { runTui } from './app.js';
+import { selectListTheme } from './theme.js';
 import type { AgentCandidate, AgentTarget, FlueServer } from './types.js';
 
 function parsePayload(value: string | undefined): unknown {
@@ -15,6 +17,11 @@ function parsePayload(value: string | undefined): unknown {
 async function choose<T>(label: string, items: T[], render: (item: T, index: number) => string): Promise<T> {
   if (items.length === 0) throw new Error(`No ${label} found.`);
   if (items.length === 1) return items[0]!;
+
+  if (input.isTTY && output.isTTY) {
+    return chooseTui(label, items, render);
+  }
+
   const rl = readline.createInterface({ input, output });
   try {
     console.log(`\n${label}:`);
@@ -28,6 +35,41 @@ async function choose<T>(label: string, items: T[], render: (item: T, index: num
   } finally {
     rl.close();
   }
+}
+
+function chooseTui<T>(label: string, items: T[], render: (item: T, index: number) => string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const tui = new TUI(new ProcessTerminal());
+    const root = new Container();
+    const selector = new SelectList(
+      items.map((item, index) => {
+        const text = render(item, index);
+        const [primary, ...rest] = text.split(' → ');
+        return { value: String(index), label: primary ?? text, description: rest.join(' → ') };
+      }),
+      12,
+      selectListTheme,
+      { minPrimaryColumnWidth: 18, maxPrimaryColumnWidth: 34 },
+    );
+
+    root.addChild(new Text(`Select ${label}`));
+    root.addChild(new Text('↑/↓ move • Enter choose • Esc abort'));
+    root.addChild(new Spacer(1));
+    root.addChild(selector);
+    tui.addChild(root);
+    tui.setFocus(selector);
+
+    selector.onSelect = (item) => {
+      tui.stop();
+      resolve(items[Number(item.value)]!);
+    };
+    selector.onCancel = () => {
+      tui.stop();
+      reject(new Error('Selection cancelled. The agent remains tragically unbothered.'));
+    };
+
+    tui.start();
+  });
 }
 
 async function promptPayload(): Promise<unknown> {
@@ -71,7 +113,7 @@ const target: AgentTarget = {
   serverUrl: candidate.server.url,
   agent: candidate.agent,
   id: argv.id,
-  payload: argv.payload === undefined ? await promptPayload() : parsePayload(argv.payload),
+  payload: argv.payload === undefined && argv.headless ? await promptPayload() : parsePayload(argv.payload) ?? {},
 };
 
 await runTui({ target, headless: argv.headless });

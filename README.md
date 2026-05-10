@@ -21,10 +21,18 @@ node dist/cli.js --help
 ## Usage
 
 ```bash
-flue-tui --url http://localhost:3583 --agent hello --id demo-1 --payload '{"name":"Milind"}'
+flue-tui
+flue-tui --url http://localhost:3583 --agent hello
+flue-tui --headless --url http://localhost:3583 --agent hello --id demo-1 --payload '{"name":"Milind"}'
 ```
 
-If you omit `--url`, it probes common Flue dev ports including `3583`.
+If you omit `--url`, it probes common Flue dev ports including `3583`. If multiple server/agent pairs are found, you get a Pi-style keyboard selector.
+
+Inside the TUI:
+
+- Type a plain prompt to send `{ "prompt": "..." }`
+- Type JSON to send raw payload
+- `/help`, `/clear`, `/exit` do the obvious things. Miracles sold separately.
 
 ## Status
 
